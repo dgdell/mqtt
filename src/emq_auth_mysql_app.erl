@@ -19,7 +19,7 @@
 
 -include("emq_auth_mysql.hrl").
 
--import(emq_auth_mysql_cli, [parse_query/1]).
+-import(emq_auth_mysql_cli, [parse_query/1, insert/1]).
 
 %% Application callbacks
 -export([start/2, prep_stop/1, stop/1]).
@@ -33,6 +33,9 @@ start(_StartType, _StartArgs) ->
     {ok, Sup} = emq_auth_mysql_sup:start_link(),
     if_enabled(auth_query, fun reg_authmod/1),
     if_enabled(acl_query,  fun reg_aclmod/1),
+    %% TODO
+    emq_auth_mysql:load(application:get_all_env()),
+    %% TODO
     {ok, Sup}.
 
 prep_stop(State) ->
@@ -41,7 +44,7 @@ prep_stop(State) ->
     State.
 
 stop(_State) ->
-    ok.
+    emq_auth_mysql:unload().
 
 reg_authmod(AuthQuery) ->
     SuperQuery = parse_query(application:get_env(?APP, super_query, undefined)),

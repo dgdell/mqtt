@@ -20,13 +20,52 @@
 
 -include_lib("emqttd/include/emqttd.hrl").
 
--import(emq_auth_mysql_cli, [is_superuser/2, query/3]).
+-include("emq_auth_mysql.hrl").
+
+-import(emq_auth_mysql_cli, [is_superuser/2, query/3, insert/3, parse_query/1]).
 
 -export([init/1, check/3, description/0]).
+-export([load/1, unload/0]).
+
+%% Hooks functions
+-export([on_client_connected/3, on_client_disconnected/3, on_message_publish/2]).
 
 -record(state, {auth_query, super_query, hash_type}).
 
 -define(EMPTY(Username), (Username =:= undefined orelse Username =:= <<>>)).
+
+%% TODO
+load(Env) ->
+    emqttd:hook('client.connected', fun ?MODULE:on_client_connected/3, [Env]),
+    emqttd:hook('client.disconnected', fun ?MODULE:on_client_disconnected/3, [Env]),
+    emqttd:hook('message.publish', fun ?MODULE:on_message_publish/2, [Env]).
+
+on_client_connected(_ConnAck, Client, _Env) ->
+    UpdateStatusOnline = parse_query(application:get_env(?APP, update_status_online, undefined)),
+    {Sql, Params} = UpdateStatusOnline,
+    query(Sql, Params, Client),
+    {ok, Client}.
+
+on_client_disconnected(_Reason, Client, _Env) ->
+    UpdateStatusOffline = parse_query(application:get_env(?APP, update_status_offline, undefined)),
+    {Sql, Params} = UpdateStatusOffline,
+    query(Sql, Params, Client),
+    ok.
+
+on_message_publish(Message = #mqtt_message{topic = <<"$SYS/", _/binary>>}, _Env) ->
+    {ok, Message};
+
+on_message_publish(Message, _Env) ->
+    InsertQuery = parse_query(application:get_env(?APP, insert_query, undefined)),
+    {Sql, Params} = InsertQuery,
+    insert(Sql, Params, Message),
+    {ok, Message}.
+
+unload() ->
+    emqttd:unhook('client.connected', fun ?MODULE:on_client_connected/3),
+    emqttd:unhook('client.disconnected', fun ?MODULE:on_client_disconnected/3),
+    emqttd:unhook('message.publish', fun ?MODULE:on_message_publish/2).
+%% TODO
 
 init({AuthQuery, SuperQuery, HashType}) ->
     {ok, #state{auth_query = AuthQuery, super_query = SuperQuery, hash_type = HashType}}.

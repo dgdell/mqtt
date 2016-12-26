@@ -34,17 +34,18 @@ check_acl({#mqtt_client{username = <<$$, _/binary>>}, _PubSub, _Topic}, _State) 
 
 check_acl({Client, PubSub, Topic}, #state{acl_query   = {AclSql, AclParams},
                                           acl_nomatch = Default}) ->
-    case emq_auth_mysql_cli:query(AclSql, AclParams, Client) of
-        {ok, _Columns, []} ->
-            Default;
-        {ok, _Columns, Rows} ->
-            Rules = filter(PubSub, compile(Rows)),
-            case match(Client, Topic, Rules) of
-                {matched, allow} -> allow;
-                {matched, deny}  -> deny;
-                nomatch          -> Default
-            end
-    end.
+    allow.
+    % case emq_auth_mysql_cli:query(AclSql, AclParams, Client) of
+    %     {ok, _Columns, []} ->
+    %         Default;
+    %     {ok, _Columns, Rows} ->
+    %         Rules = filter(PubSub, compile(Rows)),
+    %         case match(Client, Topic, Rules) of
+    %             {matched, allow} -> allow;
+    %             {matched, deny}  -> deny;
+    %             nomatch          -> Default
+    %         end
+    % end.
 
 match(_Client, _Topic, []) ->
     nomatch;

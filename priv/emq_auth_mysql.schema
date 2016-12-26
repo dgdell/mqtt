@@ -11,7 +11,7 @@
 ]}.
 
 {mapping, "auth.mysql.username", "emq_auth_mysql.server", [
-  {default, ""},
+  {default, "root"},
   {datatype, string}
 ]}.
 
@@ -54,7 +54,7 @@ end}.
 ]}.
 
 {mapping, "auth.mysql.password_hash", "emq_auth_mysql.password_hash", [
-  {default, sha256},
+  {default, plain},
   {datatype, {enum, [plain, md5, sha, sha256, pbkdf2]}}
 ]}.
 
@@ -63,6 +63,18 @@ end}.
 ]}.
 
 {mapping, "auth.mysql.acl_query", "emq_auth_mysql.acl_query", [
+  {datatype, string}
+]}.
+
+{mapping, "auth.mysql.update_status_online", "emq_auth_mysql.update_status_online", [
+  {datatype, string}
+]}.
+
+{mapping, "auth.mysql.update_status_offline", "emq_auth_mysql.update_status_offline", [
+  {datatype, string}
+]}.
+
+{mapping, "auth.mysql.insert_query", "emq_auth_mysql.insert_query", [
   {datatype, string}
 ]}.
 

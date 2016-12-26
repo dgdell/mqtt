@@ -23,7 +23,7 @@
 
 -include_lib("emqttd/include/emqttd.hrl").
 
--export([is_superuser/2, parse_query/1, connect/1, query/3]).
+-export([is_superuser/2, parse_query/1, connect/1, query/3, insert/3]).
 
 %%--------------------------------------------------------------------
 %% Is Superuser?
@@ -51,10 +51,10 @@ is_superuser({SuperSql, Params}, Client) ->
 parse_query(undefined) ->
     undefined;
 parse_query(Sql) ->
-    case re:run(Sql, "'%[uca]'", [global, {capture, all, list}]) of
+    case re:run(Sql, "'%[ucatpw]'", [global, {capture, all, list}]) of
         {match, Variables} ->
             Params = [Var || [Var] <- Variables],
-            {re:replace(Sql, "'%[uca]'", "?", [global, {return, list}]), Params};
+            {re:replace(Sql, "'%[ucatpw]'", "?", [global, {return, list}]), Params};
         nomatch ->
             {Sql, []}
     end.
@@ -69,6 +69,10 @@ connect(Options) ->
 query(Sql, Params, Client) ->
     ecpool:with_client(?APP, fun(C) -> mysql:query(C, Sql, replvar(Params, Client)) end).
 
+insert(Sql, Params, Message) ->
+    ecpool:with_client(?APP, fun(C) -> mysql:query(C, Sql, replvar_topic(Params, Message)) end).
+
+% acl
 replvar(Params, Client) ->
     replvar(Params, Client, []).
 
@@ -83,3 +87,19 @@ replvar(["'%a'" | Params], Client = #mqtt_client{peername = {IpAddr, _}}, Acc) -
 replvar([Param | Params], Client, Acc) ->
     replvar(Params, Client, [Param | Acc]).
 
+% topic
+replvar_topic(Params, Message) ->
+    replvar_topic(Params, Message, []).
+
+replvar_topic([], _Message, Acc) ->
+    lists:reverse(Acc);
+replvar_topic(["'%c'" | Params], Message = #mqtt_message{from = {ClientId, _Username}}, Acc) ->
+    replvar_topic(Params, Message, [ClientId | Acc]);
+replvar_topic(["'%t'" | Params], Message = #mqtt_message{topic = Topic}, Acc) ->
+    replvar_topic(Params, Message, [Topic | Acc]);
+replvar_topic(["'%p'" | Params], Message = #mqtt_message{payload = Payload}, Acc) ->
+    replvar_topic(Params, Message, [Payload | Acc]);
+replvar_topic(["'%w'" | Params], Message = #mqtt_message{timestamp = Timestamp}, Acc) ->
+    replvar_topic(Params, Message, [Timestamp | Acc]);
+replvar_topic([Param | Params], Message, Acc) ->
+    replvar_topic(Params, Message, [Param | Acc]).
